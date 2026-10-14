@@ -1,0 +1,22 @@
+# Binaries
+botshell
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+
+# Test artifacts
+*.test
+*.out
+
+# Configuration & Secrets
+config.json
+.env
+*.local.json
+
+# IDE & OS
+.DS_Store
+.idea/
+.vscode/
+*.swp
