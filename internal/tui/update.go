@@ -5,6 +5,7 @@ import (
 	"os"
 	"os/exec"
 	"strconv"
+	"runtime"
 
 	tea "github.com/charmbracelet/bubbletea"
 	"botshell/internal/logger"
@@ -47,6 +48,11 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.updateStatus = "checking..."
 			return m, checkUpdateCmd
 
+		case "*", "S": // Open GitHub Repo to Star
+			logger.Global().Add("Opening GitHub repository to Star: https://github.com/mncuchiinhuttt/botshell")
+			openBrowser("https://github.com/mncuchiinhuttt/botshell")
+			return m, nil
+
 		case "a": // Toggle Always-Awake
 			if m.powerGuard != nil {
 				active, err := m.powerGuard.Toggle(m.pid)
@@ -77,7 +83,12 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.refreshState()
 			}
 
-		case "s": // Select window in tmux
+		case "s": // Star on GitHub
+			logger.Global().Add("Opening GitHub to Star BotShell: https://github.com/mncuchiinhuttt/botshell")
+			openBrowser("https://github.com/mncuchiinhuttt/botshell")
+			return m, nil
+
+		case "enter": // Select window in tmux
 			if len(m.windows) > 0 && m.selectedWin < len(m.windows) {
 				idx := m.windows[m.selectedWin].Index
 				_ = m.tmux.SelectWindow(m.cfg.DefaultSession, idx)
@@ -109,3 +120,16 @@ func detachDaemon(session string) {
 	_ = cmd.Start()
 	fmt.Printf("\n[BotShell running in background with PID %s]\n", strconv.Itoa(cmd.Process.Pid))
 }
+func openBrowser(url string) {
+	var cmd *exec.Cmd
+	switch runtime.GOOS {
+	case "darwin":
+		cmd = exec.Command("open", url)
+	case "windows":
+		cmd = exec.Command("cmd", "/c", "start", url)
+	default: // linux, bsd
+		cmd = exec.Command("xdg-open", url)
+	}
+	_ = cmd.Start()
+}
+

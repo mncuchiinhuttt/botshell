@@ -26,7 +26,7 @@ func (b *Bot) handleStart(msg *tgbotapi.Message) {
 			"- Any prompt or shell command will be typed into tmux automatically.\n"+
 			"- Any slash command not listed above (e.g. `/exit`, `/help`, `/model`, `/compact`) is automatically forwarded to omp / terminal!\n"+
 			"- Or prefix with `//` (e.g. `//exit`) to explicitly force send to terminal.",
-		version.CurrentVersion,
+		version.CurrentVersion(),
 		version.Author,
 		b.cfg.DefaultSession,
 		b.powerGuard != nil && b.powerGuard.IsActive(),
@@ -117,14 +117,13 @@ func (b *Bot) handleUpdateCommand(chatID int64) {
 				"Current: `%s`\n"+
 				"Latest: `%s`\n\n"+
 				"Release link: %s",
-			version.CurrentVersion,
+			version.CurrentVersion(),
 			info.LatestVersion,
 			info.ReleaseURL,
 		)
 	} else {
-		reply = fmt.Sprintf("You are on the latest version (%s).", version.CurrentVersion)
+		reply = fmt.Sprintf("You are on the latest version (%s).", version.CurrentVersion())
 	}
-
 	m := tgbotapi.NewMessage(chatID, reply)
 	m.ParseMode = tgbotapi.ModeMarkdown
 	_, _ = b.api.Send(m)

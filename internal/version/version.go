@@ -9,11 +9,22 @@ import (
 )
 
 const (
-	CurrentVersion = "v1.0.0"
-	Author         = "@mncuchiinhuttt"
-	RepoOwner      = "mncuchiinhuttt"
-	RepoName       = "botshell"
+	BaseVersion = "v1.0.0"
+	Author      = "@mncuchiinhuttt"
+	RepoOwner   = "mncuchiinhuttt"
+	RepoName    = "botshell"
 )
+
+// GitCommit will be set via ldflags or default to short commit
+var GitCommit = "dev"
+
+// CurrentVersion returns formatted version string
+func CurrentVersion() string {
+	if GitCommit != "" && GitCommit != "dev" {
+		return fmt.Sprintf("%s (%s)", BaseVersion, GitCommit)
+	}
+	return BaseVersion
+}
 
 type githubRelease struct {
 	TagName string `json:"tag_name"`
@@ -54,7 +65,7 @@ func CheckLatest() (*UpdateInfo, error) {
 	}
 
 	latest := strings.TrimSpace(rel.TagName)
-	hasUpdate := latest != "" && latest != CurrentVersion && !strings.EqualFold(latest, CurrentVersion)
+	hasUpdate := latest != "" && latest != BaseVersion && !strings.EqualFold(latest, BaseVersion)
 
 	return &UpdateInfo{
 		HasUpdate:     hasUpdate,

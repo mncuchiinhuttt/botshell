@@ -12,7 +12,9 @@ import (
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
 	"botshell/internal/config"
 	"botshell/internal/power"
+	"botshell/internal/render"
 	"botshell/internal/tmux"
+	"botshell/internal/watcher"
 )
 
 // Bot orchestrates the Telegram listener and commands.
@@ -21,6 +23,7 @@ type Bot struct {
 	cfg        *config.Config
 	tmux       *tmux.Client
 	powerGuard *power.SleepGuard
+	watcher    *watcher.PaneWatcher
 }
 
 // New creates and initializes a Bot instance.
@@ -30,12 +33,18 @@ func New(cfg *config.Config, t *tmux.Client, p *power.SleepGuard) (*Bot, error) 
 		return nil, fmt.Errorf("failed to create telegram bot api: %w", err)
 	}
 
-	return &Bot{
+	b := &Bot{
 		api:        api,
 		cfg:        cfg,
 		tmux:       t,
 		powerGuard: p,
-	}, nil
+	}
+
+	b.watcher = watcher.New(t, cfg.DefaultSession, func(session string) {
+		b.broadcastCompletion(session)
+	})
+
+	return b, nil
 }
 // RegisterCommands registers the bot's slash command menu in Telegram.
 func (b *Bot) RegisterCommands() error {
@@ -62,6 +71,9 @@ func (b *Bot) Start(ctx context.Context) error {
 	updates := b.api.GetUpdatesChan(u)
 	log.Printf("BotShell started as @%s. Listening for updates...", b.api.Self.UserName)
 	logger.Global().Add("BotShell started as @%s. Listening for updates...", b.api.Self.UserName)
+
+	// Start terminal pane watcher in background
+	go b.watcher.Start(ctx)
 
 	for {
 		select {
@@ -101,6 +113,7 @@ func (b *Bot) processMessage(msg *tgbotapi.Message) {
 		termCmd := strings.TrimPrefix(msg.Text, "/") // leaves single slash, e.g. "/exit"
 		_ = b.tmux.SendLiteral(b.cfg.DefaultSession, termCmd)
 		_ = b.tmux.SendKeys(b.cfg.DefaultSession, "Enter")
+		b.watcher.SetWaitingCommand()
 		time.Sleep(250 * time.Millisecond)
 		b.sendScreen(msg.Chat.ID)
 		return
@@ -144,9 +157,9 @@ func (b *Bot) processMessage(msg *tgbotapi.Message) {
 			logger.Global().Add("Forwarding terminal command: %s", msg.Text)
 			_ = b.tmux.SendLiteral(b.cfg.DefaultSession, msg.Text)
 			_ = b.tmux.SendKeys(b.cfg.DefaultSession, "Enter")
+			b.watcher.SetWaitingCommand()
 			time.Sleep(250 * time.Millisecond)
 			b.sendScreen(msg.Chat.ID)
-			return
 		}
 	}
 
@@ -154,6 +167,7 @@ func (b *Bot) processMessage(msg *tgbotapi.Message) {
 	if msg.Text != "" {
 		_ = b.tmux.SendLiteral(b.cfg.DefaultSession, msg.Text)
 		_ = b.tmux.SendKeys(b.cfg.DefaultSession, "Enter")
+		b.watcher.SetWaitingCommand()
 		time.Sleep(250 * time.Millisecond)
 		b.sendScreen(msg.Chat.ID)
 	}
@@ -191,5 +205,30 @@ func (b *Bot) processCallback(cb *tgbotapi.CallbackQuery) {
 			time.Sleep(200 * time.Millisecond)
 			b.sendScreen(chatID)
 		}
+	}
+}
+
+// broadcastCompletion sends auto-capture screenshot to all allowed chats.
+func (b *Bot) broadcastCompletion(session string) {
+	raw, err := b.tmux.CapturePane(session, true, -b.cfg.CaptureHistoryLines)
+	if err != nil {
+		return
+	}
+
+	pngBytes, err := render.RenderANSIToPNG(raw)
+	if err != nil {
+		return
+	}
+
+	for _, chatID := range b.cfg.AllowedChatIDs {
+		photoFile := tgbotapi.FileBytes{
+			Name:  "completed.png",
+			Bytes: pngBytes,
+		}
+		photoMsg := tgbotapi.NewPhoto(chatID, photoFile)
+		photoMsg.Caption = fmt.Sprintf("Task Completed in `%s` at %s", session, time.Now().Format("15:04:05"))
+		photoMsg.ParseMode = tgbotapi.ModeMarkdown
+		photoMsg.ReplyMarkup = BuildScreenKeyboard(session, 0)
+		_, _ = b.api.Send(photoMsg)
 	}
 }

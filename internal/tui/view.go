@@ -65,17 +65,16 @@ func (m Model) View() string {
 		awakeBadge = badgeActive.Render("ALWAYS-AWAKE ON")
 	}
 
-	updBadge := badgeInactive.Render("v: " + version.CurrentVersion)
+	updBadge := badgeInactive.Render("v: " + version.CurrentVersion())
 	if m.updateInfo != nil && m.updateInfo.HasUpdate {
 		updBadge = badgeAlert.Render("NEW UPDATE: " + m.updateInfo.LatestVersion)
 	}
 
-	header := headerStyle.Render("BotShell Control Panel "+version.CurrentVersion) + " " +
+	header := headerStyle.Render("BotShell Control Panel "+version.CurrentVersion()) + " " +
 		authorBadge.Render("by "+version.Author) + " " +
 		awakeBadge + " " +
 		updBadge + " " +
 		badgeInactive.Render("Session: "+m.cfg.DefaultSession)
-
 	// Tab header
 	tabsView := ""
 	if m.viewMode == ViewLogs {
@@ -92,7 +91,7 @@ func (m Model) View() string {
 	}
 
 	footer := footerStyle.Render(
-		"[Tab] Switch View | [a] Toggle Awake | [u] Check Update | [Left/Right] Win | [s] Select | [b] Run in BG | [q] Quit",
+		"[Tab] View | [a] Awake | [s] Star Repo | [u] Check Upd | [Left/Right] Win | [Enter] Select | [b] BG | [q] Quit",
 	)
 
 	return lipgloss.JoinVertical(lipgloss.Left,
