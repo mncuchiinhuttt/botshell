@@ -5,21 +5,72 @@ import (
 	"image"
 	"image/draw"
 	"image/png"
+	"sync"
 
 	"golang.org/x/image/font"
-	"golang.org/x/image/font/basicfont"
+	"golang.org/x/image/font/gofont/gomono"
+	"golang.org/x/image/font/gofont/gomonobold"
+	"golang.org/x/image/font/opentype"
 	"golang.org/x/image/math/fixed"
 )
 
-const (
-	charWidth  = 7
-	charHeight = 13
-	padX       = 12
-	padY       = 12
+var (
+	fontInitOnce sync.Once
+	regularFace  font.Face
+	boldFace     font.Face
+
+	glyphWidth  int
+	glyphHeight int
+	fontAscent  int
+	padX        = 16
+	padY        = 16
 )
 
-// RenderPNG transforms a 2D cell grid into an in-memory PNG image.
+func initFonts() {
+	fontInitOnce.Do(func() {
+		regFont, err := opentype.Parse(gomono.TTF)
+		if err != nil {
+			panic(err)
+		}
+		bldFont, err := opentype.Parse(gomonobold.TTF)
+		if err != nil {
+			panic(err)
+		}
+
+		opts := &opentype.FaceOptions{
+			Size:    13,
+			DPI:     120, // 1.25x crisp render
+			Hinting: font.HintingFull,
+		}
+
+		rFace, err := opentype.NewFace(regFont, opts)
+		if err != nil {
+			panic(err)
+		}
+		bFace, err := opentype.NewFace(bldFont, opts)
+		if err != nil {
+			panic(err)
+		}
+
+		regularFace = rFace
+		boldFace = bFace
+
+		adv, _ := regularFace.GlyphAdvance('M')
+		glyphWidth = adv.Ceil()
+		if glyphWidth < 8 {
+			glyphWidth = 10
+		}
+
+		metrics := regularFace.Metrics()
+		glyphHeight = metrics.Height.Ceil()
+		fontAscent = metrics.Ascent.Ceil()
+	})
+}
+
+// RenderPNG transforms a 2D cell grid into an in-memory high-res PNG image.
 func RenderPNG(grid [][]Cell) ([]byte, error) {
+	initFonts()
+
 	numRows := len(grid)
 	if numRows == 0 {
 		numRows = 1
@@ -32,26 +83,25 @@ func RenderPNG(grid [][]Cell) ([]byte, error) {
 		}
 	}
 
-	imgWidth := maxCols*charWidth + padX*2
-	imgHeight := numRows*charHeight + padY*2
+	imgWidth := maxCols*glyphWidth + padX*2
+	imgHeight := numRows*glyphHeight + padY*2
 
 	img := image.NewRGBA(image.Rect(0, 0, imgWidth, imgHeight))
-	// Fill whole background with dark theme color
+	// Fill background with dark theme color
 	draw.Draw(img, img.Bounds(), &image.Uniform{C: ColorDefaultBG}, image.Point{}, draw.Src)
 
 	drawer := &font.Drawer{
-		Dst:  img,
-		Face: basicfont.Face7x13,
+		Dst: img,
 	}
 
 	for y, row := range grid {
 		for x, cell := range row {
-			cellLeft := padX + x*charWidth
-			cellTop := padY + y*charHeight
+			cellLeft := padX + x*glyphWidth
+			cellTop := padY + y*glyphHeight
 
 			// Draw cell background if different from default
 			if cell.BG != ColorDefaultBG {
-				cellRect := image.Rect(cellLeft, cellTop, cellLeft+charWidth, cellTop+charHeight)
+				cellRect := image.Rect(cellLeft, cellTop, cellLeft+glyphWidth, cellTop+glyphHeight)
 				draw.Draw(img, cellRect, &image.Uniform{C: cell.BG}, image.Point{}, draw.Src)
 			}
 
@@ -59,16 +109,15 @@ func RenderPNG(grid [][]Cell) ([]byte, error) {
 				continue
 			}
 
-			// basicfont baseline is at +10
-			drawer.Src = &image.Uniform{C: cell.FG}
-			drawer.Dot = fixed.P(cellLeft, cellTop+10)
-			drawer.DrawString(string(cell.Rune))
-
-			// If bold, draw again offset by 1px
 			if cell.Bold {
-				drawer.Dot = fixed.P(cellLeft+1, cellTop+10)
-				drawer.DrawString(string(cell.Rune))
+				drawer.Face = boldFace
+			} else {
+				drawer.Face = regularFace
 			}
+
+			drawer.Src = &image.Uniform{C: cell.FG}
+			drawer.Dot = fixed.P(cellLeft, cellTop+fontAscent)
+			drawer.DrawString(string(cell.Rune))
 		}
 	}
 

@@ -14,7 +14,7 @@ type Cell struct {
 	Bold bool
 }
 
-// Default colors: Catppuccin Macchiato style dark theme
+// Default colors: Modern Catppuccin Macchiato dark theme
 var (
 	ColorDefaultBG = color.RGBA{R: 0x1e, G: 0x1e, B: 0x2e, A: 0xff} // #1e1e2e
 	ColorDefaultFG = color.RGBA{R: 0xcd, G: 0xd6, B: 0xf4, A: 0xff} // #cdd6f4
@@ -56,29 +56,61 @@ func ParseANSI(raw string) [][]Cell {
 
 		for i := 0; i < n; i++ {
 			r := runes[i]
-			if r == 0x1b && i+1 < n && runes[i+1] == '[' {
-				// ANSI escape sequence start
-				j := i + 2
-				for j < n && ((runes[j] >= '0' && runes[j] <= '9') || runes[j] == ';') {
-					j++
+			if r == 0x1b && i+1 < n {
+				next := runes[i+1]
+
+				// 1. CSI sequence: ESC [
+				if next == '[' {
+					j := i + 2
+					// Collect parameter bytes
+					for j < n && ((runes[j] >= '0' && runes[j] <= '9') || runes[j] == ';' || runes[j] == '?') {
+						j++
+					}
+					if j < n {
+						finalChar := runes[j]
+						if finalChar == 'm' {
+							// SGR styling command
+							sgrStr := string(runes[i+2 : j])
+							currentFG, currentBG, bold = applySGR(sgrStr, currentFG, currentBG, bold)
+						}
+						// For all CSI commands (m, H, J, K, etc.), skip the whole sequence
+						i = j
+						continue
+					}
 				}
-				if j < n && runes[j] == 'm' {
-					// SGR command
-					sgrStr := string(runes[i+2 : j])
-					currentFG, currentBG, bold = applySGR(sgrStr, currentFG, currentBG, bold)
-					i = j
+
+				// 2. OSC sequence: ESC ] (Operating System Command, e.g. OSC 8 hyperlinks, OSC 0 window title)
+				// Format: ESC ] ... BEL (0x07) or ESC ] ... ESC \ (ST)
+				if next == ']' {
+					j := i + 2
+					for j < n {
+						if runes[j] == 0x07 { // BEL
+							break
+						}
+						if runes[j] == 0x1b && j+1 < n && runes[j+1] == '\\' { // ST (ESC \)
+							j++
+							break
+						}
+						j++
+					}
+					if j < n {
+						i = j
+						continue
+					}
+				}
+
+				// 3. Other escape sequences: ESC ( B, ESC = , ESC >, etc.
+				if i+2 < n && (next == '(' || next == ')' || next == '*' || next == '+') {
+					i += 2
 					continue
 				}
-				// Other escape sequence, skip until letter
-				for j < n && (runes[j] < 'A' || runes[j] > 'z') {
-					j++
-				}
-				if j < n {
-					i = j
+				if next >= ' ' && next <= '~' {
+					i++
 					continue
 				}
 			}
 
+			// Handle carriage return and tabs
 			if r == '\r' || r == '\t' {
 				if r == '\t' {
 					// Tab stops (4 spaces)
@@ -86,6 +118,11 @@ func ParseANSI(raw string) [][]Cell {
 						row = append(row, Cell{Rune: ' ', FG: currentFG, BG: currentBG, Bold: bold})
 					}
 				}
+				continue
+			}
+
+			// Filter unprintable control characters except standard space
+			if r < 32 && r != ' ' {
 				continue
 			}
 
