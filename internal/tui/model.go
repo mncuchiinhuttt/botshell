@@ -10,6 +10,7 @@ import (
 	"botshell/internal/logger"
 	"botshell/internal/power"
 	"botshell/internal/tmux"
+	"botshell/internal/version"
 )
 
 type ViewMode int
@@ -18,6 +19,11 @@ const (
 	ViewLogs ViewMode = iota
 	ViewScreens
 )
+
+type updateCheckMsg struct {
+	info *version.UpdateInfo
+	err  error
+}
 
 type Model struct {
 	cfg        *config.Config
@@ -30,6 +36,10 @@ type Model struct {
 	selectedWin  int
 	screenBuffer string
 	logs         []string
+
+	updateInfo   *version.UpdateInfo
+	checkingUpd  bool
+	updateStatus string
 
 	width  int
 	height int
@@ -44,15 +54,22 @@ func tickEvery() tea.Cmd {
 	})
 }
 
+func checkUpdateCmd() tea.Msg {
+	info, err := version.CheckLatest()
+	return updateCheckMsg{info: info, err: err}
+}
+
 func NewModel(cfg *config.Config, t *tmux.Client, p *power.SleepGuard, pid int) Model {
 	m := Model{
-		cfg:        cfg,
-		tmux:       t,
-		powerGuard: p,
-		pid:        pid,
-		viewMode:   ViewLogs,
-		width:      80,
-		height:     24,
+		cfg:          cfg,
+		tmux:         t,
+		powerGuard:   p,
+		pid:          pid,
+		viewMode:     ViewLogs,
+		width:        80,
+		height:       24,
+		checkingUpd:  true,
+		updateStatus: "checking...",
 	}
 	m.refreshState()
 	return m
@@ -77,5 +94,5 @@ func (m *Model) refreshState() {
 }
 
 func (m Model) Init() tea.Cmd {
-	return tickEvery()
+	return tea.Batch(tickEvery(), checkUpdateCmd)
 }

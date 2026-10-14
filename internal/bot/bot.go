@@ -45,6 +45,7 @@ func (b *Bot) RegisterCommands() error {
 		{Command: "tabs", Description: "List & switch tmux windows"},
 		{Command: "newtab", Description: "Create a new window (/newtab <name>)"},
 		{Command: "keys", Description: "Send special key (/keys Escape, /keys C-c)"},
+		{Command: "update", Description: "Check for newer versions on GitHub"},
 		{Command: "start", Description: "Show welcome status & help info"},
 	}
 	cfg := tgbotapi.NewSetMyCommands(cmds...)
@@ -117,6 +118,8 @@ func (b *Bot) processMessage(msg *tgbotapi.Message) {
 				time.Sleep(200 * time.Millisecond)
 				b.sendScreen(msg.Chat.ID)
 			}
+		case "update":
+			b.handleUpdateCommand(msg.Chat.ID)
 		}
 		return
 	}

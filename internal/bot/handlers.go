@@ -7,12 +7,12 @@ import (
 
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
 	"botshell/internal/render"
+	"botshell/internal/version"
 )
-
 // handleStart responds to /start command.
 func (b *Bot) handleStart(msg *tgbotapi.Message) {
 	text := fmt.Sprintf(
-		"BotShell Active.\n\n"+
+		"BotShell %s (by %s) Active.\n\n"+
 			"Session: `%s`\n"+
 			"Always-Awake: %v\n\n"+
 			"Commands:\n"+
@@ -20,8 +20,11 @@ func (b *Bot) handleStart(msg *tgbotapi.Message) {
 			"/text - View terminal capture as raw text\n"+
 			"/tabs - List and switch tmux windows\n"+
 			"/newtab <name> - Create a new tmux window\n"+
-			"/keys <key> - Send named key (e.g. /keys Escape)\n\n"+
+			"/keys <key> - Send named key (e.g. /keys Escape)\n"+
+			"/update - Check for newer versions on GitHub\n\n"+
 			"Any normal text message you send will be typed directly into the active tmux pane.",
+		version.CurrentVersion,
+		version.Author,
 		b.cfg.DefaultSession,
 		b.powerGuard != nil && b.powerGuard.IsActive(),
 	)
@@ -95,3 +98,32 @@ func (b *Bot) sendTabsList(chatID int64) {
 	m.ReplyMarkup = BuildTabsKeyboard(windows)
 	_, _ = b.api.Send(m)
 }
+// handleUpdateCommand checks for new releases on GitHub.
+func (b *Bot) handleUpdateCommand(chatID int64) {
+	info, err := version.CheckLatest()
+	if err != nil {
+		m := tgbotapi.NewMessage(chatID, fmt.Sprintf("Error checking updates: %v", err))
+		_, _ = b.api.Send(m)
+		return
+	}
+
+	var reply string
+	if info.HasUpdate {
+		reply = fmt.Sprintf(
+			"New version available!\n\n"+
+				"Current: `%s`\n"+
+				"Latest: `%s`\n\n"+
+				"Release link: %s",
+			version.CurrentVersion,
+			info.LatestVersion,
+			info.ReleaseURL,
+		)
+	} else {
+		reply = fmt.Sprintf("You are on the latest version (%s).", version.CurrentVersion)
+	}
+
+	m := tgbotapi.NewMessage(chatID, reply)
+	m.ParseMode = tgbotapi.ModeMarkdown
+	_, _ = b.api.Send(m)
+}
+

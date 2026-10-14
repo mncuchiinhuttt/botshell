@@ -5,6 +5,7 @@ import (
 	"strings"
 
 	"github.com/charmbracelet/lipgloss"
+	"botshell/internal/version"
 )
 
 var (
@@ -20,10 +21,22 @@ var (
 			Background(lipgloss.Color("#a6e3a1")).
 			Padding(0, 1)
 
+	badgeAlert = lipgloss.NewStyle().
+			Bold(true).
+			Foreground(lipgloss.Color("#11111b")).
+			Background(lipgloss.Color("#f38ba8")).
+			Padding(0, 1)
+
 	badgeInactive = lipgloss.NewStyle().
 			Bold(true).
 			Foreground(lipgloss.Color("#cdd6f4")).
 			Background(lipgloss.Color("#45475a")).
+			Padding(0, 1)
+
+	authorBadge = lipgloss.NewStyle().
+			Bold(true).
+			Foreground(lipgloss.Color("#89b4fa")).
+			Background(lipgloss.Color("#1e1e2e")).
 			Padding(0, 1)
 
 	tabActive = lipgloss.NewStyle().
@@ -52,7 +65,15 @@ func (m Model) View() string {
 		awakeBadge = badgeActive.Render("ALWAYS-AWAKE ON")
 	}
 
-	header := headerStyle.Render("BotShell Control Panel") + " " + awakeBadge + " " +
+	updBadge := badgeInactive.Render("v: " + version.CurrentVersion)
+	if m.updateInfo != nil && m.updateInfo.HasUpdate {
+		updBadge = badgeAlert.Render("NEW UPDATE: " + m.updateInfo.LatestVersion)
+	}
+
+	header := headerStyle.Render("BotShell Control Panel "+version.CurrentVersion) + " " +
+		authorBadge.Render("by "+version.Author) + " " +
+		awakeBadge + " " +
+		updBadge + " " +
 		badgeInactive.Render("Session: "+m.cfg.DefaultSession)
 
 	// Tab header
@@ -71,7 +92,7 @@ func (m Model) View() string {
 	}
 
 	footer := footerStyle.Render(
-		"[Tab] Switch View | [a] Toggle Awake | [Left/Right] Switch Window | [s] Select Win | [b] Run in BG | [q] Quit",
+		"[Tab] Switch View | [a] Toggle Awake | [u] Check Update | [Left/Right] Win | [s] Select | [b] Run in BG | [q] Quit",
 	)
 
 	return lipgloss.JoinVertical(lipgloss.Left,

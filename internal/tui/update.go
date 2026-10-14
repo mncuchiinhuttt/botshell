@@ -17,6 +17,21 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.height = msg.Height
 		return m, nil
 
+	case updateCheckMsg:
+		m.checkingUpd = false
+		if msg.err != nil {
+			m.updateStatus = "offline"
+		} else {
+			m.updateInfo = msg.info
+			if msg.info.HasUpdate {
+				m.updateStatus = fmt.Sprintf("UPDATE AVAILABLE: %s", msg.info.LatestVersion)
+				logger.Global().Add("New version available: %s (%s)", msg.info.LatestVersion, msg.info.ReleaseURL)
+			} else {
+				m.updateStatus = "latest"
+			}
+		}
+		return m, nil
+
 	case tickMsg:
 		m.refreshState()
 		return m, tickEvery()
@@ -26,6 +41,11 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case "q", "ctrl+c":
 			logger.Global().Add("Quit command received. Shutting down...")
 			return m, tea.Quit
+
+		case "u": // Manual check update
+			m.checkingUpd = true
+			m.updateStatus = "checking..."
+			return m, checkUpdateCmd
 
 		case "a": // Toggle Always-Awake
 			if m.powerGuard != nil {
