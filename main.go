@@ -87,8 +87,12 @@ func main() {
 
 	defer func() {
 		if powerGuard != nil {
-			log.Println("Stopping macOS Always-Awake guard...")
+			log.Println("Stopping Sleep Guard...")
 			_ = powerGuard.Stop()
+		}
+		log.Printf("Cleaning up tmux session '%s'...", cfg.DefaultSession)
+		if err := tmuxClient.KillSession(cfg.DefaultSession); err != nil {
+			log.Printf("Notice: failed to kill tmux session: %v", err)
 		}
 	}()
 

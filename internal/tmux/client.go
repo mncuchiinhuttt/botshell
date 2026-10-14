@@ -147,3 +147,12 @@ func (c *Client) NewWindow(session string, name string) error {
 	_, err := c.Run(args...)
 	return err
 }
+// KillSession terminates the entire session and cleans up its processes and windows.
+func (c *Client) KillSession(session string) error {
+	if !c.HasSession(session) {
+		return nil
+	}
+	_, err := c.Run("kill-session", "-t", session)
+	return err
+}
+

@@ -105,7 +105,6 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	return m, nil
 }
-
 func (m Model) cfgPath() string {
 	return m.cfg.DefaultSession
 }
@@ -119,7 +118,9 @@ func detachDaemon(session string) {
 	cmd.Env = os.Environ()
 	_ = cmd.Start()
 	fmt.Printf("\n[BotShell running in background with PID %s]\n", strconv.Itoa(cmd.Process.Pid))
+	os.Exit(0) // Exit immediately without running deferred shutdown hooks
 }
+
 func openBrowser(url string) {
 	var cmd *exec.Cmd
 	switch runtime.GOOS {
