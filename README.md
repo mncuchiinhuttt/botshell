@@ -6,133 +6,96 @@ BotShell turns Telegram into an interactive, zero-latency dashboard for remote t
 
 ---
 
+## One-Line Quick Install
+
+### macOS & Linux
+Cài đặt tự động bản binary mới nhất vào `/usr/local/bin` chỉ bằng một câu lệnh:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/mncuchiinhuttt/botshell/main/install.sh | bash
+```
+
+Hoặc tải script về chạy trực tiếp:
+```bash
+wget -qO- https://raw.githubusercontent.com/mncuchiinhuttt/botshell/main/install.sh | bash
+```
+
+### Windows
+Tải file zip `botshell_windows_amd64.zip` từ [Releases](https://github.com/mncuchiinhuttt/botshell/releases/latest), giải nén và chạy `botshell.exe --setup`.
+
+---
+
 ## Key Highlights
 
 - **Cross-Platform Power Management (Keep Awake):**
   - **macOS:** `/usr/bin/caffeinate -dism -w <PID>`
   - **Linux:** Native `systemd-inhibit --what=idle:sleep:handle-lid-switch`
   - **Windows:** Native Win32 `SetThreadExecutionState` (ES_CONTINUOUS | ES_SYSTEM_REQUIRED | ES_DISPLAY_REQUIRED)
-  - Automatically restores normal system sleep state when the daemon terminates or exits.
-- **Pure In-Memory ANSI Rasterizer:** Converts 140–160 column terminal outputs into high-resolution PNG images directly in memory (`golang.org/x/image`). TUI frames, syntax colors, and status bars render crisp on mobile without word-wrapping artifacts or terminal escape garbage.
-- **Bi-directional tmux Sync:** Seamlessly connects to a live `tmux` session. Work from your machine at your desk, then walk away and continue controlling the exact same screen from Telegram.
-- **Interactive Terminal TUI Dashboard (Bubbletea):**
-  - Live activity logs view.
-  - Multi-window screen previewer with window switching.
-  - One-key Keep-Awake toggling (`a`).
-  - Background daemonize support (`b`).
-- **Dynamic Slash Commands:** Auto-registers Telegram's native command menu (`/screen`, `/text`, `/tabs`, `/newtab`, `/keys`) for direct autocomplete in the chat UI.
-- **Interactive Control Keyboard:** Custom inline keyboard providing instant key presses (`Esc`, `Ctrl+O`, `Ctrl+C`, `Tab`, `Enter`, arrow navigation, `y`/`n`) and in-place screen refresh.
-
----
-
-## Architecture
-
-```
-                  +-----------------------------------+
-                  |           Telegram Client         |
-                  |  - Slash command autocomplete     |
-                  |  - High-res PNG screen feed       |
-                  |  - Inline control keyboard        |
-                  +-----------------+-----------------+
-                                    | Telegram Bot API
-                                    v
-+-----------------------------------------------------------------------+
-|                       BotShell Daemon (Go)                            |
-|                                                                       |
-|  [ Auth & Security ]       [ OS Power Guard ]     [ ANSI Rasterizer ] |
-|  Restricts chat/user IDs   macOS: caffeinate      Parses ANSI colors  |
-|  via config whitelist      Linux: systemd-inhibit Renders 2D PNG grid |
-|                            Windows: Win32 API                         |
-+-----------------------------------+-----------------------------------+
-                                    | Unix / CLI
-                                    v
-+-----------------------------------------------------------------------+
-|                    tmux multiplexer (macOS / Linux)                   |
-|                                                                       |
-|  [Window 0: Agent Harness]   [Window 1: nvim]   [Window 2: build]     |
-+-----------------------------------------------------------------------+
-```
-
----
-
-## Platform Support
-
-| Operating System | Terminal Engine | Sleep Guard Mechanism | Support Status |
-| :--- | :--- | :--- | :--- |
-| **macOS** (Apple Silicon & Intel) | tmux (`brew install tmux`) | `caffeinate` | Tier 1 (Full) |
-| **Linux** (Ubuntu, Debian, Fedora, Arch) | tmux (`apt`, `dnf`, `pacman`) | `systemd-inhibit` | Tier 1 (Full) |
-| **Windows** (WSL2 / MSYS2) | tmux | Win32 `SetThreadExecutionState` | Supported |
+  - Tự động khôi phục chế độ sleep mặc định khi tiến trình daemon dừng.
+- **Pure In-Memory ANSI Rasterizer:** Chuyển đổi khung viền terminal rộng 140–160 cột thành ảnh PNG siêu nét trực tiếp trong bộ nhớ (`golang.org/x/image`), không làm vỡ giao diện TUI trên điện thoại.
+- **Bi-directional tmux Sync:** Kết nối 2 chiều với session `tmux`. Ngồi tại máy làm việc bình thường, ra ngoài mở điện thoại tương tác tiếp.
+- **Interactive Terminal TUI Dashboard (Bubbletea & Lipgloss):**
+  - Giao diện trực quan hiển thị Activity Logs theo thời gian thực.
+  - Chuyển tab xem preview nội dung từng screen / window trong tmux.
+  - Phím tắt `a` bật/tắt Always-Awake tức thì, `u` check update, `b` chuyển chạy ngầm background.
+- **Dynamic Slash Commands:** Tự động đăng ký menu lệnh Telegram (`/screen`, `/text`, `/tabs`, `/newtab`, `/keys`, `/update`, `/start`).
+- **Interactive Control Keyboard:** Bàn phím nút bấm điều khiển tức thời (`Esc`, `Ctrl+O`, `Ctrl+C`, `Tab`, `Enter`, mũi tên điều hướng, `y`/`n`).
 
 ---
 
 ## Quick Start
 
-### 1. Interactive Setup Wizard
-Run the setup wizard to configure your Telegram Bot Token and authorized Chat IDs:
-
+### 1. Cấu hình ban đầu
 ```bash
-./botshell --setup
+botshell --setup
 ```
 
-The interactive wizard prompts for:
-1. **Telegram Bot Token:** Obtained from [@BotFather](https://t.me/botfather).
-2. **Allowed Chat/User IDs:** Comma-separated list of Telegram User/Chat IDs authorized to interact with the bot.
-3. **Default tmux session name:** Session identifier to attach/create (default: `botshell`).
-4. **Always-Awake:** Toggle background system power assertions.
+Wizard sẽ hỏi:
+1. **Telegram Bot Token:** Lấy từ [@BotFather](https://t.me/botfather).
+2. **Allowed Chat/User IDs:** ID Telegram được phép truy cập (ngăn chặn người lạ).
+3. **Default tmux session name:** Tên session (mặc định: `botshell`).
+4. **Always-Awake:** Bật chế độ giữ máy không sleep khi chạy.
 
-Configuration is securely written to `~/.config/botshell/config.json` with restricted permissions (`0600`).
+Cấu hình được lưu tại: `~/.config/botshell/config.json`.
 
-### 2. Start the Daemon
+### 2. Khởi chạy
 ```bash
-./botshell
+botshell
 ```
 
-Running `./botshell` launches the interactive **Bubbletea TUI Dashboard**:
-- `Tab`: Switch between **Logs View** and **Screens View**.
-- `a`: Toggle Always-Awake state on the fly.
-- `Left` / `Right`: Cycle through tmux windows.
-- `s`: Select active window.
-- `b`: Run in background (detach daemon).
-- `q`: Quit and cleanly shutdown.
-
-To run silently without TUI:
+Chạy ở chế độ chạy ngầm (không mở TUI):
 ```bash
-./botshell --daemon
+botshell --daemon
 ```
 
 ---
 
-## Telegram Commands & Interactions
+## Telegram Commands
 
-| Command | Description |
+| Lệnh | Chức năng |
 | :--- | :--- |
-| `/screen`, `/s` | Capture current tmux pane and deliver as a high-resolution PNG image with inline control keys |
-| `/text`, `/t` | Capture current terminal buffer as clean monospace text in a Markdown code block |
-| `/tabs` | Display all tmux windows with instant switch buttons |
-| `/newtab <name>` | Spawn a new window in the active session |
-| `/keys <key>` | Send a named key combination (e.g., `/keys Escape`, `/keys C-c`, `/keys C-o`) |
-| `/start` | View daemon uptime, session status, and command cheat sheet |
+| `/screen`, `/s` | Chụp màn hình terminal dạng ảnh PNG sắc nét kèm bàn phím điều khiển |
+| `/text`, `/t` | Chụp terminal dưới dạng text code block |
+| `/tabs` | Danh sách các cửa sổ tmux và nút chuyển tab |
+| `/newtab <tên>` | Mở window mới trong session |
+| `/keys <key>` | Gửi phím đặc biệt (ví dụ `/keys Escape`, `/keys C-c`) |
+| `/update` | Kiểm tra phiên bản mới trên GitHub |
+| `/start` | Xem thông tin trạng thái bot & trợ giúp |
 
 ---
 
-## Building from Source
+## Pre-built Bundles & Releases
 
-```bash
-git clone https://github.com/mncuchiinhuttt/botshell.git
-cd botshell
+Tất cả các bản dựng bundle (`.tar.gz`, `.zip`) kèm file checksum SHA256 đều được phát hành tại [GitHub Releases](https://github.com/mncuchiinhuttt/botshell/releases/latest):
 
-# macOS / Linux native build
-go build -o botshell .
-
-# Cross-compile for Linux (from Mac/Windows)
-GOOS=linux GOARCH=amd64 go build -o botshell-linux-amd64 .
-
-# Cross-compile for Windows
-GOOS=windows GOARCH=amd64 go build -o botshell.exe .
-```
+- `botshell_darwin_arm64.tar.gz` (Apple Silicon M1/M2/M3/M4)
+- `botshell_darwin_amd64.tar.gz` (Intel Mac)
+- `botshell_linux_amd64.tar.gz` (Linux x86_64)
+- `botshell_linux_arm64.tar.gz` (Linux aarch64 / Raspberry Pi / ARM VPS)
+- `botshell_windows_amd64.zip` (Windows 64-bit)
 
 ---
 
 ## License
 
-MIT License. See [LICENSE](LICENSE) for details.
+MIT License. Copyright (c) 2026 @mncuchiinhuttt.

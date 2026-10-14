@@ -13,6 +13,9 @@ botshell
 # Configuration & Secrets
 config.json
 .env
+
+# Release distribution archives
+dist/
 *.local.json
 
 # IDE & OS
