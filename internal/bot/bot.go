@@ -8,6 +8,7 @@ import (
 	"strings"
 	"time"
 
+	"botshell/internal/logger"
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
 	"botshell/internal/config"
 	"botshell/internal/power"
@@ -59,6 +60,7 @@ func (b *Bot) Start(ctx context.Context) error {
 
 	updates := b.api.GetUpdatesChan(u)
 	log.Printf("BotShell started as @%s. Listening for updates...", b.api.Self.UserName)
+	logger.Global().Add("BotShell started as @%s. Listening for updates...", b.api.Self.UserName)
 
 	for {
 		select {
@@ -78,8 +80,10 @@ func (b *Bot) handleUpdate(update *tgbotapi.Update) {
 	if update.Message != nil {
 		if !b.cfg.IsChatAllowed(update.Message.Chat.ID) {
 			log.Printf("Unauthorized message from chat ID %d", update.Message.Chat.ID)
+			logger.Global().Add("Unauthorized message from chat ID %d", update.Message.Chat.ID)
 			return
 		}
+		logger.Global().Add("Message from @%s: %s", update.Message.From.UserName, update.Message.Text)
 		b.processMessage(update.Message)
 	} else if update.CallbackQuery != nil {
 		if !b.cfg.IsChatAllowed(update.CallbackQuery.Message.Chat.ID) {

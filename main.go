@@ -11,15 +11,18 @@ import (
 
 	"botshell/internal/bot"
 	"botshell/internal/config"
+	"botshell/internal/logger"
 	"botshell/internal/power"
 	"botshell/internal/tmux"
+	"botshell/internal/tui"
+	tea "github.com/charmbracelet/bubbletea"
 )
 
 func main() {
 	configPathFlag := flag.String("config", "", "path to config JSON file")
 	setupFlag := flag.Bool("setup", false, "run interactive setup wizard")
+	daemonFlag := flag.Bool("daemon", false, "run silently in background without interactive TUI")
 	flag.Parse()
-
 	cfgPath := *configPathFlag
 	if cfgPath == "" {
 		var err error
@@ -98,9 +101,24 @@ func main() {
 		log.Printf("Warning: failed to register slash commands menu: %v", err)
 	}
 
+	// Start Bot polling loop in background goroutine
+	go func() {
+		if err := telegramBot.Start(ctx); err != nil {
+			logger.Global().Add("Bot error: %v", err)
+		}
+	}()
 
-	if err := telegramBot.Start(ctx); err != nil {
-		log.Fatalf("Bot error: %v", err)
+	if *daemonFlag {
+		// Silent mode: block on context cancellation
+		<-ctx.Done()
+	} else {
+		// Interactive TUI mode
+		m := tui.NewModel(cfg, tmuxClient, powerGuard, os.Getpid())
+		p := tea.NewProgram(m, tea.WithAltScreen())
+		if _, err := p.Run(); err != nil {
+			log.Printf("TUI error: %v", err)
+		}
+		stop()
 	}
 
 	log.Println("BotShell shutdown cleanly.")
