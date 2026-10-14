@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"fmt"
 	"io"
+	"runtime"
 	"strconv"
 	"strings"
 )
@@ -14,7 +15,8 @@ func RunSetup(r io.Reader, w io.Writer, targetPath string) (*Config, error) {
 	cfg := DefaultConfig()
 
 	fmt.Fprintln(w, "=== BotShell Configuration Setup ===")
-	fmt.Fprintln(w, "Setting up Telegram Bot and tmux environment.")
+	fmt.Fprintf(w, "Platform: %s/%s\n", runtime.GOOS, runtime.GOARCH)
+	fmt.Fprintln(w, "Setting up Telegram Bot and terminal environment.")
 	fmt.Fprintln(w)
 
 	// 1. Bot Token
@@ -68,7 +70,7 @@ func RunSetup(r io.Reader, w io.Writer, targetPath string) (*Config, error) {
 	}
 
 	// 4. Always Awake
-	fmt.Fprint(w, "Enable macOS Always-Awake while running? (Y/n) [Y]: ")
+	fmt.Fprintf(w, "Enable Always-Awake (%s power assertion) while running? (Y/n) [Y]: ", runtime.GOOS)
 	awakeInput, err := reader.ReadString('\n')
 	if err == nil {
 		awakeInput = strings.TrimSpace(strings.ToLower(awakeInput))

@@ -1,19 +1,27 @@
 # BotShell
 
-> Ultra-lightweight macOS Terminal & TUI remote controller via Telegram, powered by Golang & tmux.
+> Ultra-lightweight Cross-Platform Terminal & TUI remote controller via Telegram, powered by Golang & tmux.
 
-BotShell turns Telegram into an interactive, zero-latency dashboard for remote terminal sessions running on macOS. Whether you are running coding harnesses, long-running builds, Neovim, or AI agents, BotShell gives you full control and real-time observability from your mobile phone with zero visual degradation.
+BotShell turns Telegram into an interactive, zero-latency dashboard for remote terminal sessions. Whether you are running coding harnesses, long-running builds, Neovim, or AI agents on **macOS**, **Linux**, or **Windows**, BotShell gives you full control and real-time observability from your mobile phone with zero visual degradation.
 
 ---
 
 ## Key Highlights
 
+- **Cross-Platform Power Management (Keep Awake):**
+  - **macOS:** `/usr/bin/caffeinate -dism -w <PID>`
+  - **Linux:** Native `systemd-inhibit --what=idle:sleep:handle-lid-switch`
+  - **Windows:** Native Win32 `SetThreadExecutionState` (ES_CONTINUOUS | ES_SYSTEM_REQUIRED | ES_DISPLAY_REQUIRED)
+  - Automatically restores normal system sleep state when the daemon terminates or exits.
 - **Pure In-Memory ANSI Rasterizer:** Converts 140–160 column terminal outputs into high-resolution PNG images directly in memory (`golang.org/x/image`). TUI frames, syntax colors, and status bars render crisp on mobile without word-wrapping artifacts or terminal escape garbage.
-- **Bi-directional tmux Sync:** Seamlessly connects to a live `tmux` session. Work from your Mac at your desk, then walk away and continue controlling the exact same screen from Telegram.
-- **Dynamic Slash Commands:** Auto-registers Telegram's native command menu (`/screen`, `/text`, `/tabs`, `/newtab`, `/keys`) so you get auto-complete directly inside the chat UI.
+- **Bi-directional tmux Sync:** Seamlessly connects to a live `tmux` session. Work from your machine at your desk, then walk away and continue controlling the exact same screen from Telegram.
+- **Interactive Terminal TUI Dashboard (Bubbletea):**
+  - Live activity logs view.
+  - Multi-window screen previewer with window switching.
+  - One-key Keep-Awake toggling (`a`).
+  - Background daemonize support (`b`).
+- **Dynamic Slash Commands:** Auto-registers Telegram's native command menu (`/screen`, `/text`, `/tabs`, `/newtab`, `/keys`) for direct autocomplete in the chat UI.
 - **Interactive Control Keyboard:** Custom inline keyboard providing instant key presses (`Esc`, `Ctrl+O`, `Ctrl+C`, `Tab`, `Enter`, arrow navigation, `y`/`n`) and in-place screen refresh.
-- **Automatic macOS Sleep Prevention (caffeinate):** Leverages `/usr/bin/caffeinate -dism -w <PID>` to keep your Mac awake while BotShell is active. Automatically restores default sleep policies when the process terminates or exits.
-- **Zero Third-Party Binary Dependencies:** Aside from standard `tmux`, the entire ANSI parsing, rasterizing, and bot dispatch logic is self-contained in a single, compact Go binary.
 
 ---
 
@@ -29,16 +37,17 @@ BotShell turns Telegram into an interactive, zero-latency dashboard for remote t
                                     | Telegram Bot API
                                     v
 +-----------------------------------------------------------------------+
-|                          BotShell Daemon (Go)                         |
+|                       BotShell Daemon (Go)                            |
 |                                                                       |
-|  [ Auth & Security ]       [ Caffeinate Guard ]   [ ANSI Rasterizer ] |
-|  Restricts chat/user IDs   Holds power assertion  Parses ANSI colors  |
-|  via config whitelist      bound to process PID   Renders 2D PNG grid |
+|  [ Auth & Security ]       [ OS Power Guard ]     [ ANSI Rasterizer ] |
+|  Restricts chat/user IDs   macOS: caffeinate      Parses ANSI colors  |
+|  via config whitelist      Linux: systemd-inhibit Renders 2D PNG grid |
+|                            Windows: Win32 API                         |
 +-----------------------------------+-----------------------------------+
-                                    | Unix CLI
+                                    | Unix / CLI
                                     v
 +-----------------------------------------------------------------------+
-|                       tmux multiplexer (macOS)                        |
+|                    tmux multiplexer (macOS / Linux)                   |
 |                                                                       |
 |  [Window 0: Agent Harness]   [Window 1: nvim]   [Window 2: build]     |
 +-----------------------------------------------------------------------+
@@ -46,14 +55,13 @@ BotShell turns Telegram into an interactive, zero-latency dashboard for remote t
 
 ---
 
-## Prerequisites
+## Platform Support
 
-- **macOS:** Tested on macOS 14+ / Apple Silicon & Intel.
-- **tmux:** Install via Homebrew if not already installed:
-  ```bash
-  brew install tmux
-  ```
-- **Go:** 1.24+ (only required if building from source).
+| Operating System | Terminal Engine | Sleep Guard Mechanism | Support Status |
+| :--- | :--- | :--- | :--- |
+| **macOS** (Apple Silicon & Intel) | tmux (`brew install tmux`) | `caffeinate` | Tier 1 (Full) |
+| **Linux** (Ubuntu, Debian, Fedora, Arch) | tmux (`apt`, `dnf`, `pacman`) | `systemd-inhibit` | Tier 1 (Full) |
+| **Windows** (WSL2 / MSYS2) | tmux | Win32 `SetThreadExecutionState` | Supported |
 
 ---
 
@@ -70,7 +78,7 @@ The interactive wizard prompts for:
 1. **Telegram Bot Token:** Obtained from [@BotFather](https://t.me/botfather).
 2. **Allowed Chat/User IDs:** Comma-separated list of Telegram User/Chat IDs authorized to interact with the bot.
 3. **Default tmux session name:** Session identifier to attach/create (default: `botshell`).
-4. **macOS Always-Awake:** Toggle background system power assertions.
+4. **Always-Awake:** Toggle background system power assertions.
 
 Configuration is securely written to `~/.config/botshell/config.json` with restricted permissions (`0600`).
 
@@ -79,7 +87,18 @@ Configuration is securely written to `~/.config/botshell/config.json` with restr
 ./botshell
 ```
 
-*(If executed without an existing configuration file, BotShell automatically boots the setup wizard).*
+Running `./botshell` launches the interactive **Bubbletea TUI Dashboard**:
+- `Tab`: Switch between **Logs View** and **Screens View**.
+- `a`: Toggle Always-Awake state on the fly.
+- `Left` / `Right`: Cycle through tmux windows.
+- `s`: Select active window.
+- `b`: Run in background (detach daemon).
+- `q`: Quit and cleanly shutdown.
+
+To run silently without TUI:
+```bash
+./botshell --daemon
+```
 
 ---
 
@@ -94,17 +113,6 @@ Configuration is securely written to `~/.config/botshell/config.json` with restr
 | `/keys <key>` | Send a named key combination (e.g., `/keys Escape`, `/keys C-c`, `/keys C-o`) |
 | `/start` | View daemon uptime, session status, and command cheat sheet |
 
-### Direct Typing
-Sending any standard text message to the bot will pipe that string directly into the active tmux pane (`send-keys -l "<input>" Enter`), followed by an immediate screen refresh.
-
----
-
-## Security Model
-
-- **Whitelist Enforcement:** Every update is checked against the configured `allowed_chat_ids`. Unlisted IDs receive no responses and actions are dropped before execution.
-- **Shell Escaping:** Input strings are forwarded using `tmux send-keys -l` (literal mode), preventing command injection or unwanted shell expansion of metacharacters (`$`, `&`, `;`, `"`).
-- **Process Isolation:** Power management assertions are strictly bound to the daemon PID; terminating the daemon immediately relinquishes system sleep holds.
-
 ---
 
 ## Building from Source
@@ -112,12 +120,15 @@ Sending any standard text message to the bot will pipe that string directly into
 ```bash
 git clone https://github.com/mncuchiinhuttt/botshell.git
 cd botshell
-go build -o botshell .
-```
 
-To run test suites:
-```bash
-go test -v ./...
+# macOS / Linux native build
+go build -o botshell .
+
+# Cross-compile for Linux (from Mac/Windows)
+GOOS=linux GOARCH=amd64 go build -o botshell-linux-amd64 .
+
+# Cross-compile for Windows
+GOOS=windows GOARCH=amd64 go build -o botshell.exe .
 ```
 
 ---

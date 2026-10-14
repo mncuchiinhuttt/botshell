@@ -40,7 +40,7 @@ func NewClient() (*Client, error) {
 		}
 	}
 	if err != nil {
-		return nil, errors.New("tmux is not installed or not in PATH. Please install with 'brew install tmux'")
+		return nil, errors.New("tmux is not installed or not in PATH. Please install tmux (e.g. 'brew install tmux' on macOS, 'sudo apt install tmux' on Linux, or via MSYS2/WSL on Windows)")
 	}
 	return &Client{binPath: path}, nil
 }
