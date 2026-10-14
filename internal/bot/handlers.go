@@ -15,14 +15,17 @@ func (b *Bot) handleStart(msg *tgbotapi.Message) {
 		"BotShell %s (by %s) Active.\n\n"+
 			"Session: `%s`\n"+
 			"Always-Awake: %v\n\n"+
-			"Commands:\n"+
+			"BotShell Controls:\n"+
 			"/screen - View terminal capture as high-res PNG\n"+
 			"/text - View terminal capture as raw text\n"+
 			"/tabs - List and switch tmux windows\n"+
 			"/newtab <name> - Create a new tmux window\n"+
 			"/keys <key> - Send named key (e.g. /keys Escape)\n"+
 			"/update - Check for newer versions on GitHub\n\n"+
-			"Any normal text message you send will be typed directly into the active tmux pane.",
+			"Terminal Pass-through:\n"+
+			"- Any prompt or shell command will be typed into tmux automatically.\n"+
+			"- Any slash command not listed above (e.g. `/exit`, `/help`, `/model`, `/compact`) is automatically forwarded to omp / terminal!\n"+
+			"- Or prefix with `//` (e.g. `//exit`) to explicitly force send to terminal.",
 		version.CurrentVersion,
 		version.Author,
 		b.cfg.DefaultSession,

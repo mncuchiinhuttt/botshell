@@ -96,21 +96,37 @@ func (b *Bot) handleUpdate(update *tgbotapi.Update) {
 }
 
 func (b *Bot) processMessage(msg *tgbotapi.Message) {
+	// 1. Check if user explicitly wants to send text to terminal via // (e.g. //exit or //changelog)
+	if strings.HasPrefix(msg.Text, "//") {
+		termCmd := strings.TrimPrefix(msg.Text, "/") // leaves single slash, e.g. "/exit"
+		_ = b.tmux.SendLiteral(b.cfg.DefaultSession, termCmd)
+		_ = b.tmux.SendKeys(b.cfg.DefaultSession, "Enter")
+		time.Sleep(250 * time.Millisecond)
+		b.sendScreen(msg.Chat.ID)
+		return
+	}
+
+	// 2. Check if it's a known BotShell command
 	if msg.IsCommand() {
 		switch msg.Command() {
 		case "start":
 			b.handleStart(msg)
+			return
 		case "screen", "s":
 			b.sendScreen(msg.Chat.ID)
+			return
 		case "text", "t":
 			b.sendTextMode(msg.Chat.ID)
+			return
 		case "tabs":
 			b.sendTabsList(msg.Chat.ID)
+			return
 		case "newtab":
 			name := strings.TrimSpace(msg.CommandArguments())
 			_ = b.tmux.NewWindow(b.cfg.DefaultSession, name)
 			time.Sleep(150 * time.Millisecond)
 			b.sendScreen(msg.Chat.ID)
+			return
 		case "keys":
 			key := strings.TrimSpace(msg.CommandArguments())
 			if key != "" {
@@ -118,10 +134,20 @@ func (b *Bot) processMessage(msg *tgbotapi.Message) {
 				time.Sleep(200 * time.Millisecond)
 				b.sendScreen(msg.Chat.ID)
 			}
+			return
 		case "update":
 			b.handleUpdateCommand(msg.Chat.ID)
+			return
+		default:
+			// Unknown command to BotShell (e.g. /exit, /help, /model, /clear, /compact, /plan)
+			// Forward verbatim directly to the terminal!
+			logger.Global().Add("Forwarding terminal command: %s", msg.Text)
+			_ = b.tmux.SendLiteral(b.cfg.DefaultSession, msg.Text)
+			_ = b.tmux.SendKeys(b.cfg.DefaultSession, "Enter")
+			time.Sleep(250 * time.Millisecond)
+			b.sendScreen(msg.Chat.ID)
+			return
 		}
-		return
 	}
 
 	// Normal text input typed by user: forward literal text and press Enter
